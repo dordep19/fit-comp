@@ -9,13 +9,13 @@ cd fit-comp-backend
 source env/bin/activate
 ```
 
-This activates the virtual env and dependencies can now be installed local to the repository.
+This activates the virtual environment and dependencies can now be installed local to the repository.
 
 ```
 pip install -r requirements.txt
 ```
 
-Now we can migrate the database.
+Ensure that path to the local PostgreSQL database inside of .env is correct. The database should be structured as outlined in [wiki](https://github.com/dordep19/fit-comp-backend/wiki/Database). The database can now be migrated.
 
 ```
 python manage.py db init
