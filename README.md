@@ -1,1 +1,1 @@
-# fitcomp-backend
+# fit-comp-backend
