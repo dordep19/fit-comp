@@ -1,17 +1,18 @@
 from app import db
+from flask_login import UserMixin
 
-class User(db.Model):
+class User(UserMixin, db.Model):
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
-    first_name = db.Column(db.String())
-    last_name = db.Column(db.String())
-    gender = db.Column(db.String())
+    email = db.Column(db.String(), unique=True)
+    password = db.Column(db.String())
+    name = db.Column(db.String())
 
-    def __init__(self, first_name, last_name, gender):
-        self.first_name = first_name
-        self.last_name = last_name
-        self.gender = gender
+    def __init__(self, email, password, name):
+        self.email = email
+        self.password = password
+        self.name = name
 
     def __repr__(self):
         return '<id {}>'.format(self.id)
@@ -19,11 +20,11 @@ class User(db.Model):
     def serialize(self):
         return {
             'id': self.id, 
-            'first_name': self.first_name,
-            'last_name': self.last_name,
-            'gender': self.gender
+            'email': self.email,
+            'password': self.password,
+            'name': self.name
         }
-    
+
 class Data(db.Model):
     __tablename__ = 'data'
 
@@ -102,18 +103,3 @@ class assignments(db.Model):
             'comp_id': self.comp_id,
             'admin': self.admin
         }
-
-class InvalidUsage(Exception):
-    status_code = 400
-
-    def __init__(self, message, status_code=None, payload=None):
-        Exception.__init__(self)
-        self.message = message
-        if status_code is not None:
-            self.status_code = status_code
-        self.payload = payload
-
-    def to_dict(self):
-        rv = dict(self.payload or ())
-        rv['message'] = self.message
-        return rv

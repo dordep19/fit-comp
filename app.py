@@ -1,62 +1,99 @@
 import os
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm.exc import NoResultFound
+from flask import Flask, request, jsonify, redirect, url_for, flash
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager, login_user, login_required, current_user
 
+# load environment variables from .env file
 load_dotenv()
-app = Flask(__name__)
 
+# run flask app
+app = Flask(__name__)
 app.config.from_object(os.environ['APP_SETTINGS'])
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
 
-from models import User, Competition, InvalidUsage
+# run database and import database models
+db = SQLAlchemy(app)
+db.init_app(app)
+from models import User, Competition
+
+# run login manager
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+@login_manager.user_loader
+def load_user(user_id):
+
+    return User.query.get(int(user_id))
 
 @app.route('/')
-def root():
-    return 'Welcome to fit-comp'
+def index():
 
-@app.errorhandler(InvalidUsage)
-def handle_invalid_usage(error):
-    response = jsonify(error.to_dict())
-    response.status_code = error.status_code
-    return response
+    return 'Welcome to fit-comp API.'
 
-@app.route('/users/add', endpoint='add-user')
-def add_user():
-    first_name = request.args.get('first_name')
-    last_name = request.args.get('last_name')
-    gender = request.args.get('gender')
-    try:
-        user = User(
-            first_name = first_name,
-            last_name = last_name,
-            gender = gender
-        )
-        db.session.add(user)
-        db.session.commit()
-        return 'User added (id={})'.format(user.id)
-    except Exception as e:
-	    raise InvalidUsage(str(e), status_code=500)
+@app.route('/profile')
+def profile():
 
-@app.route('/users/remove/<id_>', endpoint='remove-user')
-def remove_user(id_):
-    try:
-        user = User.query.filter_by(id=id_).one()
-        db.session.delete(user)
-        db.session.commit()
-        return 'User removed (id={})'.format(user.id)
-    except NoResultFound:
-        raise InvalidUsage('User not found', status_code=404)
-    except Exception as e:
-        raise InvalidUsage(str(e), status_code=500)
+    return 'You are logged in as {}'.format(current_user.name)
 
-@app.route('/competitions/add', endpoint='add-comp')
+@app.route('/login')
+def login():
+
+    return 'Login route.'
+
+@app.route('/login', methods=['POST'])
+def login_post():
+    req = request.json
+    email = req['email']
+    password = req['password']
+
+    # check if user exists and password hashes match
+    user = User.query.filter_by(email=email).first()
+    if not user or not check_password_hash(user.password, password):
+
+        return 'Please check your login details and try again.'
+
+    # otherwise create new user
+    login_user(user)
+
+    return 'Hello {}'.format(user.name)
+
+@app.route('/signup')
+def signup():
+
+    return 'Signup route.'
+
+@app.route('/signup', methods=['POST'])
+def signup_post():
+    req = request.json
+    email = req['email']
+    name = req['name']
+    password = req['password']
+
+    # check if user already exists
+    user = User.query.filter_by(email=email).first()
+    if user:
+
+        return 'User with id {} already exists'.format(user.id)
+
+    # otherwise create new user
+    new_user = User(email=email, name=name, 
+        password=generate_password_hash(password, method='sha256'))
+    db.session.add(new_user)
+    db.session.commit()
+
+    return 'User with id {} created'.format(new_user.id)
+
+@app.route('/new', methods=['POST'])
+@login_required
 def add_comp():
-    type = request.args.get('type')
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    req = request.json
+    type = req['type']
+    start_date = req['start_date']
+    end_date = req['end_date']
+
     try:
         comp = Competition(
             type = type,
@@ -65,22 +102,22 @@ def add_comp():
         )
         db.session.add(comp)
         db.session.commit()
-        return 'Competition added (id={})'.format(comp.id)
-    except Exception as e:
-	    raise InvalidUsage(str(e), status_code=500)
 
-@app.route('/competitions/remove/<id_>', endpoint='remove-comp')
-def remove_user(id_):
+        return 'Competition created (id={})'.format(comp.id)
+    except Exception as e:
+
+        return str(e)
+
+@app.route('/get/<id_>', methods=['GET'])
+@login_required
+def get_comp(id_):
     try:
-        comp = Competition.query.filter_by(id=id_).one()
-        db.session.delete(comp)
-        db.session.commit()
-        return 'Competition removed (id={})'.format(comp.id)
-    except NoResultFound:
-        raise InvalidUsage('Competition not found', status_code=404)
-    except Exception as e:
-        raise InvalidUsage(str(e), status_code=500)
+        comp=Competition.query.filter_by(id=id_).first()
 
+        return jsonify(comp.serialize())
+    except Exception as e:
+
+        return str(e)
 
 if __name__ == '__main__':
     app.run()
