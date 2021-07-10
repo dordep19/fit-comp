@@ -1,5 +1,5 @@
 import os
-
+from datetime import datetime
 from sqlalchemy.orm import exc
 from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
@@ -107,6 +107,41 @@ def create_comp():
         db.session.commit()
 
         return 'Competition with id {} created'.format(comp.id)
+    except Exception as e:
+
+        return str(e)
+
+@app.route('/upload', methods=['POST'])
+@login_required
+def upload_data():
+    # check if data already entered
+    data = Data.query.filter_by(user_id=current_user.id, date=datetime.today().date()).first()
+    if data:
+
+        return 'Data already entered today'
+
+    # otherwise insert new data
+    req = request.json
+    user_id = current_user.id
+    steps = req['steps']
+    calories = req['calories']
+    distance = req['distance']
+    weight = req['weight']
+    date = datetime.today().date()
+
+    try:
+        new_data = Data(
+            user_id=user_id,
+            steps = steps,
+            calories = calories,
+            distance = distance,
+            weight = weight,
+            date = date
+        )
+        db.session.add(new_data)
+        db.session.commit()
+
+        return 'Data entered on {}'.format(new_data.date)
     except Exception as e:
 
         return str(e)
