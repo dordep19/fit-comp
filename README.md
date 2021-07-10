@@ -1,11 +1,11 @@
-# fit-comp-backend
+# fit-comp
 
 The backend for serving basic functionalities of fitness competition app data.
 
 ## Development
 
 ```
-cd fit-comp-backend
+cd fit-comp
 source env/bin/activate
 ```
 
