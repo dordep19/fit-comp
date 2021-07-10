@@ -80,7 +80,7 @@ class Competition(db.Model):
             'end_date': self.end_date
         }
 
-class assignments(db.Model):
+class Assignment(db.Model):
     __tablename__ = 'assignments'
 
     id = db.Column(db.Integer, primary_key=True)

@@ -1,4 +1,6 @@
 import os
+
+from sqlalchemy.orm import exc
 from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm.exc import NoResultFound
@@ -17,10 +19,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # run database and import database models
 db = SQLAlchemy(app)
 db.init_app(app)
-from models import User, Competition
+from models import User, Competition, Assignment, Data
 
 # run login manager
 login_manager = LoginManager()
+login_manager.login_view = 'login'
 login_manager.init_app(app)
 
 @login_manager.user_loader
@@ -86,9 +89,9 @@ def signup_post():
 
     return 'User with id {} created'.format(new_user.id)
 
-@app.route('/new', methods=['POST'])
+@app.route('/create', methods=['POST'])
 @login_required
-def add_comp():
+def create_comp():
     req = request.json
     type = req['type']
     start_date = req['start_date']
@@ -103,18 +106,60 @@ def add_comp():
         db.session.add(comp)
         db.session.commit()
 
-        return 'Competition created (id={})'.format(comp.id)
+        return 'Competition with id {} created'.format(comp.id)
     except Exception as e:
 
         return str(e)
 
-@app.route('/get/<id_>', methods=['GET'])
+@app.route('/join', methods=['POST'])
+@login_required
+def join_comp():
+    req = request.json
+    comp_id = req['comp_id']
+    admin = True if req['admin'] == 'True' else False
+
+    # check if user already enrolled in competition
+    assignment = Assignment.query.filter_by(user_id=current_user.id, comp_id=comp_id).first()
+    if assignment:
+
+        return 'User {} already enrolled in competition {}'.format(current_user.id, comp_id)
+
+    # otherwise enroll user
+    new_assignment = Assignment(user_id=current_user.id, comp_id=comp_id, admin=admin)
+    db.session.add(new_assignment)
+    db.session.commit()
+
+    return 'User {} enrolled in competition {}'.format(new_assignment.user_id, new_assignment.comp_id)
+
+@app.route('/get_competitions', methods=['GET'])
+@login_required
+def get_comps():
+    try:
+        comps=Assignment.query.filter_by(user_id=current_user.id).all()
+
+        return jsonify(list(map(lambda comp: comp.serialize(), comps)))
+    except Exception as e:
+
+        return str(e)
+   
+@app.route('/get_info/<id_>', methods=['GET'])
 @login_required
 def get_comp(id_):
     try:
         comp=Competition.query.filter_by(id=id_).first()
 
         return jsonify(comp.serialize())
+    except Exception as e:
+
+        return str(e)
+
+@app.route('/get_members/<id_>', methods=['GET'])
+@login_required
+def get_members(id_):
+    try:
+        members=Assignment.query.filter_by(comp_id=id_).all()
+
+        return jsonify(list(map(lambda member: member.serialize(), members)))
     except Exception as e:
 
         return str(e)
