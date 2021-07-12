@@ -1,0 +1,8 @@
+version: "3.9.5"
+
+services:
+    deploy:
+        build:
+            context: ./
+        ports:
+            - 5000:5000
