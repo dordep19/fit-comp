@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import date, datetime
 from sqlalchemy.orm import exc
 from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
@@ -115,7 +115,8 @@ def create_comp():
 @login_required
 def upload_data():
     # check if data already entered
-    data = Data.query.filter_by(user_id=current_user.id, date=datetime.today().date()).first()
+    data = Data.query.filter_by(user_id=current_user.id, 
+        date=datetime.today().date()).first()
     if data:
 
         return 'Data already entered today'
@@ -154,7 +155,8 @@ def join_comp():
     admin = True if req['admin'] == 'True' else False
 
     # check if user already enrolled in competition
-    assignment = Assignment.query.filter_by(user_id=current_user.id, comp_id=comp_id).first()
+    assignment = Assignment.query.filter_by(user_id=current_user.id, 
+        comp_id=comp_id).first()
     if assignment:
 
         return 'User {} already enrolled in competition {}'.format(current_user.id, comp_id)
@@ -164,13 +166,14 @@ def join_comp():
     db.session.add(new_assignment)
     db.session.commit()
 
-    return 'User {} enrolled in competition {}'.format(new_assignment.user_id, new_assignment.comp_id)
+    return 'User {} enrolled in competition {}'.format(new_assignment.user_id, 
+        new_assignment.comp_id)
 
 @app.route('/get_competitions', methods=['GET'])
 @login_required
 def get_comps():
     try:
-        comps=Assignment.query.filter_by(user_id=current_user.id).all()
+        comps = Assignment.query.filter_by(user_id=current_user.id).all()
 
         return jsonify(list(map(lambda comp: comp.serialize(), comps)))
     except Exception as e:
@@ -179,9 +182,9 @@ def get_comps():
    
 @app.route('/get_info/<id_>', methods=['GET'])
 @login_required
-def get_comp(id_):
+def get_info(id_):
     try:
-        comp=Competition.query.filter_by(id=id_).first()
+        comp = Competition.query.filter_by(id=id_).first()
 
         return jsonify(comp.serialize())
     except Exception as e:
@@ -192,11 +195,74 @@ def get_comp(id_):
 @login_required
 def get_members(id_):
     try:
-        members=Assignment.query.filter_by(comp_id=id_).all()
+        members = Assignment.query.filter_by(comp_id=id_).all()
 
         return jsonify(list(map(lambda member: member.serialize(), members)))
     except Exception as e:
 
+        return str(e)
+
+# parse database field name of chosen metric
+def get_metric(metric):
+    switcher = {
+        'Distance': 'distance',
+        'Calories': 'calories',
+        'Steps': 'steps',
+        'Weight': 'weight'
+    }
+
+    return switcher.get(metric, 'Invalid metric')
+
+@app.route('/get_leaderboard/<id_>', methods=['GET'])
+@login_required
+def get_leaderboard(id_):
+    try:
+        comp = Competition.query.filter_by(id=id_).first()
+        metric = get_metric(comp.type)
+        start_date = comp.start_date
+        end_date = comp.end_date
+        leaderboard = {}
+
+        # get all members participating in competition
+        members = Assignment.query.filter_by(comp_id=id_).all()
+
+        for member in members:
+            # get data of each member for the duration of the competition
+            data = Data.query.filter_by(user_id=member.user_id).filter(Data.date <= end_date, 
+                Data.date >= start_date).all()
+            data = list(map(lambda elem: elem.serialize(), data))
+
+            # check if metric focuses on sum total
+            if metric in ['distance', 'calories', 'steps']:
+                total = 0
+
+                for elem in data:
+                    total += elem[metric]
+                leaderboard[member.user_id] = total
+
+            # otherwise it is weight loss
+            else:
+                # get the weight on the first day and latest day of competition
+                start_weight = data[0]
+                curr_weight = data[-1]
+
+                # compute weight loss
+                total = start_weight['weight'] - curr_weight['weight']
+                leaderboard[member.user_id] = total
+
+        # order user scores and generate rankings
+        ordered = sorted(leaderboard, key=leaderboard.get, reverse=True)
+        rankings = []
+        rank = 1
+        
+        for user_id in ordered:
+            rankings += [{'position': rank, 'user_id': user_id, 'score': leaderboard[user_id]}]
+            rank += 1
+        
+        return jsonify(rankings)
+
+    except Exception as e:
+        
         return str(e)
 
 if __name__ == '__main__':

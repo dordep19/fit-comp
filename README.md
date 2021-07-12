@@ -26,5 +26,5 @@ python manage.py db upgrade
 To run the backend server in development mode on localhost port 5000:
 
 ```
-python manage.py runserver
+python3 manage.py runserver
 ```
