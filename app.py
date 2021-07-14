@@ -36,7 +36,7 @@ def index():
     rsp = {
         'timestamp': datetime.now(),
         'status': 200,
-        'messsage': 'Welcome to fit-comp API!',
+        'messsage': 'Welcome to fit-comp API',
         'path': '/'
     }
 
@@ -47,7 +47,7 @@ def profile():
     rsp = {
         'timestamp': datetime.now(),
         'status': 200,
-        'messsage': 'You are logged in as {}.'.format(current_user.name),
+        'messsage': 'You are logged in as {}'.format(current_user.name),
         'path': '/profile'
     }
 
@@ -58,7 +58,7 @@ def login():
     rsp = {
         'timestamp': datetime.now(),
         'status': 200,
-        'messsage': 'This is the login route.',
+        'messsage': 'This is the login route',
         'path': '/login'
     }
 
@@ -78,7 +78,7 @@ def login_post():
                 'timestamp': datetime.now(),
                 'status': 401,
                 'error': 'Unauthorized',
-                'messsage': 'Invalid username/password combination.',
+                'messsage': 'Invalid username/password combination',
                 'path': '/login'
             }
 
@@ -110,7 +110,7 @@ def signup():
     rsp = {
         'timestamp': datetime.now(),
         'status': 200,
-        'messsage': 'This is the signup route.',
+        'messsage': 'This is the signup route',
         'path': '/signup'
     }
 
@@ -258,7 +258,11 @@ def upload_data():
 def join_comp():
     req = request.json
     comp_id = req['comp_id']
-    admin = True if req['admin'] == 'True' else False
+    # declaring admin status is optional, default is false
+    try:
+        admin = True if req['admin'] == 'True' else False
+    except KeyError:
+        admin = False
 
     try:    
         # check if user already enrolled in competition
@@ -285,6 +289,50 @@ def join_comp():
             'messsage': 'User {} enrolled in competition {}'.format(new_assignment.id, 
                 new_assignment.comp_id),
             'path': '/competition/join'
+        }
+
+        return jsonify(rsp)
+    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 500,
+            'error': 'Internal Server Error',
+            'messsage': str(e),
+            'path': '/join'
+        }
+
+        return jsonify(rsp)
+
+@app.route('/competition/admin/status', methods=['POST'])
+@login_required
+def set_admin():
+    req = request.json
+    comp_id = req['comp_id']
+    status = admin = True if req['status'] == 'True' else False
+
+    try:    
+        # check if user not enrolled in competition (only enrolled users can change admin status)
+        assignment = Assignment.query.filter_by(user_id=current_user.id, comp_id=comp_id).first()
+        if not assignment:
+            rsp = {
+                'timestamp': datetime.now(),
+                'status': 403,
+                'error': 'Forbidden',
+                'messsage': 'User {} not enrolled in competition {}'.format(current_user.email, comp_id),
+                'path': '/competition/admin/status'
+            }
+
+            return jsonify(rsp)
+        # otherwise change user's admin status
+        assignment.admin = status
+        db.session.commit()
+
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 200,
+            'messsage': 'User {} admin status updated in competition {}'.format(assignment.id, 
+                assignment.comp_id),
+            'path': '/competition/admin/status'
         }
 
         return jsonify(rsp)
