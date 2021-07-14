@@ -253,7 +253,7 @@ def upload_data():
 
         return jsonify(rsp)
 
-@app.route('/join', methods=['POST'])
+@app.route('/competition/join', methods=['POST'])
 @login_required
 def join_comp():
     req = request.json
@@ -270,7 +270,7 @@ def join_comp():
                 'status': 409,
                 'error': 'Conflict',
                 'messsage': 'User {} already enrolled in competition {}'.format(current_user.email, comp_id),
-                'path': '/join'
+                'path': '/competition/join'
             }
 
             return jsonify(rsp)
@@ -284,7 +284,7 @@ def join_comp():
             'status': 200,
             'messsage': 'User {} enrolled in competition {}'.format(new_assignment.id, 
                 new_assignment.comp_id),
-            'path': '/join'
+            'path': '/competition/join'
         }
 
         return jsonify(rsp)
