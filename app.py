@@ -161,7 +161,7 @@ def signup_post():
 
         return jsonify(rsp)
 
-@app.route('/create', methods=['POST'])
+@app.route('/competition/create', methods=['POST'])
 @login_required
 def create_comp():
     req = request.json
@@ -182,7 +182,7 @@ def create_comp():
             'timestamp': datetime.now(),
             'status': 200,
             'messsage': 'Competition with id {} created'.format(comp.id),
-            'path': '/create'
+            'path': '/competition/create'
         }
 
         return jsonify(rsp)
@@ -192,12 +192,12 @@ def create_comp():
             'status': 500,
             'error': 'Internal Server Error',
             'messsage': str(e),
-            'path': '/create'
+            'path': '/competition/create'
         }
 
         return jsonify(rsp)
 
-@app.route('/upload', methods=['POST'])
+@app.route('/data/upload', methods=['POST'])
 @login_required
 def upload_data():
     # check if data already entered
@@ -209,7 +209,7 @@ def upload_data():
             'status': 409,
             'error': 'Conflict',
             'messsage': 'Data already entered today',
-            'path': '/upload'
+            'path': '/data/upload'
         }
 
         return jsonify(rsp)
@@ -238,7 +238,7 @@ def upload_data():
             'timestamp': datetime.now(),
             'status': 200,
             'messsage': 'Data entered on {}'.format(new_data.date),
-            'path': '/upload'
+            'path': '/data/upload'
         }
 
         return jsonify(rsp)
@@ -248,7 +248,7 @@ def upload_data():
             'status': 500,
             'error': 'Internal Server Error',
             'messsage': str(e),
-            'path': '/create'
+            'path': '/data/upload'
         }
 
         return jsonify(rsp)
@@ -299,7 +299,7 @@ def join_comp():
 
         return jsonify(rsp)
 
-@app.route('/get_competitions', methods=['GET'])
+@app.route('/competitions', methods=['GET'])
 @login_required
 def get_comps():
     try:
@@ -309,7 +309,7 @@ def get_comps():
             'timestamp': datetime.now(),
             'status': 200,
             'competitions': list(map(lambda comp: comp.serialize(), comps)),
-            'path': '/get_competitions'
+            'path': '/competitions'
         }
 
         return jsonify(rsp)
@@ -319,22 +319,23 @@ def get_comps():
             'status': 500,
             'error': 'Internal Server Error',
             'messsage': str(e),
-            'path': '/get_competitions'
+            'path': '/competitions'
         }
 
         return jsonify(rsp)
    
-@app.route('/get_info/<id_>', methods=['GET'])
+@app.route('/competition', methods=['GET'])
 @login_required
-def get_info(id_):
+def get_info():
     try:
-        comp = Competition.query.filter_by(id=id_).first()
+        comp_id = request.args.get('id')
+        comp = Competition.query.filter_by(id=comp_id).first()
 
         rsp = {
             'timestamp': datetime.now(),
             'status': 200,
             'competition': comp.serialize(),
-            'path': '/get_info/<id_>'
+            'path': '/competition'
         }
 
         return jsonify(rsp)
@@ -344,22 +345,23 @@ def get_info(id_):
             'status': 500,
             'error': 'Internal Server Error',
             'messsage': str(e),
-            'path': '/get_info/<id_>'
+            'path': '/competition'
         }
 
         return jsonify(rsp)
 
-@app.route('/get_members/<id_>', methods=['GET'])
+@app.route('/competition/members', methods=['GET'])
 @login_required
-def get_members(id_):
+def get_members():
     try:
-        members = Assignment.query.filter_by(comp_id=id_).all()
+        comp_id = request.args.get('id')
+        members = Assignment.query.filter_by(comp_id=comp_id).all()
 
         rsp = {
             'timestamp': datetime.now(),
             'status': 200,
             'members': list(map(lambda member: member.serialize(), members)),
-            'path': '/get_members/<id_>'
+            'path': '/competition/members'
         }
 
         return jsonify(rsp)
@@ -369,7 +371,7 @@ def get_members(id_):
             'status': 500,
             'error': 'Internal Server Error',
             'messsage': str(e),
-            'path': '/get_members/<id_>'
+            'path': '/competition/members'
         }
 
         return jsonify(rsp)
@@ -385,18 +387,19 @@ def get_metric(metric):
 
     return switcher.get(metric, 'Invalid metric')
 
-@app.route('/get_leaderboard/<id_>', methods=['GET'])
+@app.route('/competition/leaderboard', methods=['GET'])
 @login_required
-def get_leaderboard(id_):
+def get_leaderboard():
     try:
-        comp = Competition.query.filter_by(id=id_).first()
+        comp_id = request.args.get('id')
+        comp = Competition.query.filter_by(id=comp_id).first()
         metric = get_metric(comp.type)
         start_date = comp.start_date
         end_date = comp.end_date
         leaderboard = {}
 
         # get all members participating in competition
-        members = Assignment.query.filter_by(comp_id=id_).all()
+        members = Assignment.query.filter_by(comp_id=comp_id).all()
 
         for member in members:
             # get data of each member for the duration of the competition
@@ -435,7 +438,7 @@ def get_leaderboard(id_):
             'timestamp': datetime.now(),
             'status': 200,
             'leaderboard': rankings,
-            'path': '/get_leaderboard/<id_>'
+            'path': '/competition/leaderboard'
         }
 
         return jsonify(rsp)
@@ -446,7 +449,7 @@ def get_leaderboard(id_):
             'status': 500,
             'error': 'Internal Server Error',
             'messsage': str(e),
-            'path': '/get_leaderboard/<id_>'
+            'path': '/competition/leaderboard'
         }
 
         return jsonify(rsp)
