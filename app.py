@@ -4,7 +4,7 @@ from sqlalchemy.orm import exc
 from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm.exc import NoResultFound
-from flask import Flask, request, jsonify, redirect, url_for, flash
+from flask import Flask, json, request, jsonify, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, login_user, login_required, current_user
 
@@ -33,18 +33,36 @@ def load_user(user_id):
 
 @app.route('/')
 def index():
+    rsp = {
+        'timestamp': datetime.now(),
+        'status': 200,
+        'messsage': 'Welcome to fit-comp API!',
+        'path': '/'
+    }
 
-    return 'Welcome to fit-comp API.'
+    return jsonify(rsp)
 
 @app.route('/profile')
 def profile():
+    rsp = {
+        'timestamp': datetime.now(),
+        'status': 200,
+        'messsage': 'You are logged in as {}.'.format(current_user.name),
+        'path': '/profile'
+    }
 
-    return 'You are logged in as {}'.format(current_user.name)
+    return jsonify(rsp)
 
 @app.route('/login')
 def login():
+    rsp = {
+        'timestamp': datetime.now(),
+        'status': 200,
+        'messsage': 'This is the login route.',
+        'path': '/login'
+    }
 
-    return 'Login route.'
+    return jsonify(rsp)
 
 @app.route('/login', methods=['POST'])
 def login_post():
@@ -52,21 +70,51 @@ def login_post():
     email = req['email']
     password = req['password']
 
-    # check if user exists and password hashes match
-    user = User.query.filter_by(email=email).first()
-    if not user or not check_password_hash(user.password, password):
+    try:
+        # check if user exists and password hashes match
+        user = User.query.filter_by(email=email).first()
+        if not user or not check_password_hash(user.password, password):
+            rsp = {
+                'timestamp': datetime.now(),
+                'status': 401,
+                'error': 'Unauthorized',
+                'messsage': 'Invalid username/password combination.',
+                'path': '/login'
+            }
 
-        return 'Please check your login details and try again.'
+            return jsonify(rsp)
+        # otherwise create new user
+        login_user(user)
 
-    # otherwise create new user
-    login_user(user)
+        rsp = {
+                'timestamp': datetime.now(),
+                'status': 200,
+                'messsage': 'Hello {}'.format(user.name),
+                'path': '/login'
+        }
 
-    return 'Hello {}'.format(user.name)
+        return jsonify(rsp)
+    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 500,
+            'error': 'Internal Server Error',
+            'messsage': str(e),
+            'path': '/create'
+        }
+
+        return jsonify(rsp)
 
 @app.route('/signup')
 def signup():
+    rsp = {
+        'timestamp': datetime.now(),
+        'status': 200,
+        'messsage': 'This is the signup route.',
+        'path': '/signup'
+    }
 
-    return 'Signup route.'
+    return jsonify(rsp)
 
 @app.route('/signup', methods=['POST'])
 def signup_post():
@@ -75,19 +123,43 @@ def signup_post():
     name = req['name']
     password = req['password']
 
-    # check if user already exists
-    user = User.query.filter_by(email=email).first()
-    if user:
+    try:
+        # check if user already exists
+        user = User.query.filter_by(email=email).first()
+        if user:
+            rsp = {
+                'timestamp': datetime.now(),
+                'status': 409,
+                'error': 'Conflict',
+                'messsage': 'User with email {} already exists'.format(user.email),
+                'path': '/signup'
+            }
 
-        return 'User with id {} already exists'.format(user.id)
+            return jsonify(rsp)
+        # otherwise create new user
+        new_user = User(email=email, name=name, 
+            password=generate_password_hash(password, method='sha256'))
+        db.session.add(new_user)
+        db.session.commit()
 
-    # otherwise create new user
-    new_user = User(email=email, name=name, 
-        password=generate_password_hash(password, method='sha256'))
-    db.session.add(new_user)
-    db.session.commit()
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 200,
+            'messsage': 'User with email {} created'.format(new_user.email),
+            'path': '/signup'
+        }
 
-    return 'User with id {} created'.format(new_user.id)
+        return jsonify(rsp)
+    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 500,
+            'error': 'Internal Server Error',
+            'messsage': str(e),
+            'path': '/signup'
+        }
+
+        return jsonify(rsp)
 
 @app.route('/create', methods=['POST'])
 @login_required
@@ -106,10 +178,24 @@ def create_comp():
         db.session.add(comp)
         db.session.commit()
 
-        return 'Competition with id {} created'.format(comp.id)
-    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 200,
+            'messsage': 'Competition with id {} created'.format(comp.id),
+            'path': '/create'
+        }
 
-        return str(e)
+        return jsonify(rsp)
+    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 500,
+            'error': 'Internal Server Error',
+            'messsage': str(e),
+            'path': '/create'
+        }
+
+        return jsonify(rsp)
 
 @app.route('/upload', methods=['POST'])
 @login_required
@@ -118,9 +204,15 @@ def upload_data():
     data = Data.query.filter_by(user_id=current_user.id, 
         date=datetime.today().date()).first()
     if data:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 409,
+            'error': 'Conflict',
+            'messsage': 'Data already entered today',
+            'path': '/upload'
+        }
 
-        return 'Data already entered today'
-
+        return jsonify(rsp)
     # otherwise insert new data
     req = request.json
     user_id = current_user.id
@@ -142,10 +234,24 @@ def upload_data():
         db.session.add(new_data)
         db.session.commit()
 
-        return 'Data entered on {}'.format(new_data.date)
-    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 200,
+            'messsage': 'Data entered on {}'.format(new_data.date),
+            'path': '/upload'
+        }
 
-        return str(e)
+        return jsonify(rsp)
+    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 500,
+            'error': 'Internal Server Error',
+            'messsage': str(e),
+            'path': '/create'
+        }
+
+        return jsonify(rsp)
 
 @app.route('/join', methods=['POST'])
 @login_required
@@ -154,20 +260,44 @@ def join_comp():
     comp_id = req['comp_id']
     admin = True if req['admin'] == 'True' else False
 
-    # check if user already enrolled in competition
-    assignment = Assignment.query.filter_by(user_id=current_user.id, 
-        comp_id=comp_id).first()
-    if assignment:
+    try:    
+        # check if user already enrolled in competition
+        assignment = Assignment.query.filter_by(user_id=current_user.id, 
+            comp_id=comp_id).first()
+        if assignment:
+            rsp = {
+                'timestamp': datetime.now(),
+                'status': 409,
+                'error': 'Conflict',
+                'messsage': 'User {} already enrolled in competition {}'.format(current_user.email, comp_id),
+                'path': '/join'
+            }
 
-        return 'User {} already enrolled in competition {}'.format(current_user.id, comp_id)
+            return jsonify(rsp)
+        # otherwise enroll user
+        new_assignment = Assignment(user_id=current_user.id, comp_id=comp_id, admin=admin)
+        db.session.add(new_assignment)
+        db.session.commit()
 
-    # otherwise enroll user
-    new_assignment = Assignment(user_id=current_user.id, comp_id=comp_id, admin=admin)
-    db.session.add(new_assignment)
-    db.session.commit()
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 200,
+            'messsage': 'User {} enrolled in competition {}'.format(new_assignment.id, 
+                new_assignment.comp_id),
+            'path': '/join'
+        }
 
-    return 'User {} enrolled in competition {}'.format(new_assignment.user_id, 
-        new_assignment.comp_id)
+        return jsonify(rsp)
+    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 500,
+            'error': 'Internal Server Error',
+            'messsage': str(e),
+            'path': '/join'
+        }
+
+        return jsonify(rsp)
 
 @app.route('/get_competitions', methods=['GET'])
 @login_required
@@ -175,10 +305,24 @@ def get_comps():
     try:
         comps = Assignment.query.filter_by(user_id=current_user.id).all()
 
-        return jsonify(list(map(lambda comp: comp.serialize(), comps)))
-    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 200,
+            'competitions': list(map(lambda comp: comp.serialize(), comps)),
+            'path': '/get_competitions'
+        }
 
-        return str(e)
+        return jsonify(rsp)
+    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 500,
+            'error': 'Internal Server Error',
+            'messsage': str(e),
+            'path': '/get_competitions'
+        }
+
+        return jsonify(rsp)
    
 @app.route('/get_info/<id_>', methods=['GET'])
 @login_required
@@ -186,10 +330,24 @@ def get_info(id_):
     try:
         comp = Competition.query.filter_by(id=id_).first()
 
-        return jsonify(comp.serialize())
-    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 200,
+            'competition': comp.serialize(),
+            'path': '/get_info/<id_>'
+        }
 
-        return str(e)
+        return jsonify(rsp)
+    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 500,
+            'error': 'Internal Server Error',
+            'messsage': str(e),
+            'path': '/get_info/<id_>'
+        }
+
+        return jsonify(rsp)
 
 @app.route('/get_members/<id_>', methods=['GET'])
 @login_required
@@ -197,10 +355,24 @@ def get_members(id_):
     try:
         members = Assignment.query.filter_by(comp_id=id_).all()
 
-        return jsonify(list(map(lambda member: member.serialize(), members)))
-    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 200,
+            'members': list(map(lambda member: member.serialize(), members)),
+            'path': '/get_members/<id_>'
+        }
 
-        return str(e)
+        return jsonify(rsp)
+    except Exception as e:
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 500,
+            'error': 'Internal Server Error',
+            'messsage': str(e),
+            'path': '/get_members/<id_>'
+        }
+
+        return jsonify(rsp)
 
 # parse database field name of chosen metric
 def get_metric(metric):
@@ -259,11 +431,25 @@ def get_leaderboard(id_):
             rankings += [{'position': rank, 'user_id': user_id, 'score': leaderboard[user_id]}]
             rank += 1
         
-        return jsonify(rankings)
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 200,
+            'leaderboard': rankings,
+            'path': '/get_leaderboard/<id_>'
+        }
+
+        return jsonify(rsp)
 
     except Exception as e:
-        
-        return str(e)
+        rsp = {
+            'timestamp': datetime.now(),
+            'status': 500,
+            'error': 'Internal Server Error',
+            'messsage': str(e),
+            'path': '/get_leaderboard/<id_>'
+        }
+
+        return jsonify(rsp)
 
 if __name__ == '__main__':
     app.run()
