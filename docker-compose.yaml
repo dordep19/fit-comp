@@ -1,8 +1,26 @@
-version: "3.9.5"
-
+version: "3"
 services:
-    deploy:
-        build:
-            context: ./
-        ports:
-            - 5000:5000
+  web:
+    links:
+      - "db"
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/data
+    depends_on:
+      - db
+    env_file:
+      - .env
+
+  db:
+    image: postgres:10
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=fit_comp
+    ports:
+      - "5432:5432"
+    expose:
+      - 5432

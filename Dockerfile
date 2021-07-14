@@ -6,4 +6,5 @@ ADD . /app
 
 RUN pip install -r requirements.txt
 
-CMD ["python3", "manage.py", "runserver"]
+RUN chmod u+x ./entrypoint.sh
+ENTRYPOINT ["./entrypoint.sh"]
